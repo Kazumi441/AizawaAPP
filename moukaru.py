@@ -6,7 +6,7 @@ selected_districts = st.sidebar.multiselect("東京23区から選択", ["千代�
 walk_distance = st.sidebar.slider("駅からの徒歩距離（分）", 0, 30, (0, 30))
 age_range = st.sidebar.slider("築年数（年）", 0, 50, (0, 50))
 layout_types = st.sidebar.multiselect("間取り", ["ワンルーム", "1K", "1DK", "1LDK" , "2K" ,"2DK" ,"2LDK", "3K", "3DK","3LDK","4K","4DK","4LDK以上"])
-price_range = st.sidebar.slider("金額（万円）", 0, 2000, (0, 2000), step=500)
+price_range = st.sidebar.slider("金額（万円）", 0, 2000, (0, 20000), step=500)
 
 # メインセクション
 st.title("マンション買うなら儲かるくん")
