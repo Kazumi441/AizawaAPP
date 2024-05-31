@@ -2,22 +2,32 @@ import streamlit as st
 import pandas as pd
 import sqlite3
 
-# SQLite データベースから物件情報を取得
 def get_filtered_data(selected_districts, walk_distance, age_range, layout_types, price_range):
-    conn = sqlite3.connect('scraping/chuko_database.db')
+    # データベースに接続
+    conn = sqlite3.connect("scraping/chuko_database.db")
+    cursor = conn.cursor()
+
+    # 選択された条件をクエリに組み込む
     query = f"""
         SELECT *
         FROM chuko_table
-        WHERE 区 IN ({','.join(['?'] * len(selected_districts))})
-            AND minutes >= ?
-            AND CAST(SUBSTR(construction_year, 2, 2) AS INTEGER) >= ?
-            AND layout IN ({','.join(['?'] * len(layout_types))})
-            AND price >= ?
-            AND price <= ?
+        WHERE selected_districts IN ({','.join(['?'] * len(selected_districts))})
+        AND walk_distance BETWEEN ? AND ?
+        AND age_range BETWEEN ? AND ?
+        AND layout_types IN ({','.join(['?'] * len(layout_types))})
+        AND price_range BETWEEN ? AND ?
     """
-    params = selected_districts + [walk_distance[0], age_range[0]] + layout_types + [price_range[0], price_range[1]]
-    filtered_data = pd.read_sql_query(query, conn, params=params)
+
+    # クエリのパラメータを設定
+    params = selected_districts + [walk_distance[0], walk_distance[1]]+ [age_range[0], age_range[1]] + layout_types + [price_range[0], price_range[1]]
+
+    # クエリを実行して物件情報を取得
+    cursor.execute(query, params)
+    filtered_data = cursor.fetchall()
+
+    # データベース接続を閉じる
     conn.close()
+
     return filtered_data
 
 # Streamlit アプリケーション
