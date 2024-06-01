@@ -24,7 +24,6 @@ def load_data_from_database(districts, walk, age, layouts, price):
     AND price_range BETWEEN ? AND ?
 """.format(','.join('?'*len(districts)), ','.join('?'*len(layouts)))
 
-
     params = districts + [walk[0], walk[1], age[0], age[1]] + layouts + [price[0], price[1]]
     df = pd.read_sql_query(query, conn, params=params)
     conn.close()
