@@ -49,15 +49,20 @@ def main():
 
         # 物件情報を表示
         st.write("物件情報:")
-        for row in results:
-            name, location_parts, price_range, layout_types, age_range, walk_distance = row
-            st.write(f"物件名: {name}, 所在地: {location_parts}, 価格: {price_range}, 間取り: {layout_types}, 築年数: {age_range}, 徒歩距離: {walk_distance}分")
-
-        # 検索結果を選択できるボタンを追加
-        selected_property = st.selectbox("物件を選択してください", [result[0] for result in results])
-
-         # 選択した物件の情報を表示
+        property_names = [row[0] for row in results]
+        selected_property = st.selectbox("物件を選択", property_names, key="property_selection")
+        selected_property_info = None
         for row in results:
             name, location_parts, price_range, layout_types, age_range, walk_distance = row
             if name == selected_property:
+                selected_property_info = row
                 st.write(f"物件名: {name}, 所在地: {location_parts}, 価格: {price_range}万円, 間取り: {layout_types}, 築年数: {age_range}年, 徒歩距離: {walk_distance}分")
+
+        # 選択した物件情報を再度表示
+        if selected_property_info:
+            st.write("選択した物件情報:")
+            name, location_parts, price_range, layout_types, age_range, walk_distance = selected_property_info
+            st.write(f"物件名: {name}, 所在地: {location_parts}, 価格: {price_range}万円, 間取り: {layout_types}, 築年数: {age_range}年, 徒歩距離: {walk_distance}分")
+
+if __name__ == "__main__":
+    main()
