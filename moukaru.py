@@ -1,39 +1,10 @@
 import streamlit as st
-import pandas as pd
 import sqlite3
 
-def get_filtered_data(selected_districts, walk_distance, age_range, layout_types, price_range):
-    # データベースに接続
-    conn = sqlite3.connect("scraping/chuko_database.db")
-    cursor = conn.cursor()
-
-    # 選択された条件をクエリに組み込む
-    query = f"""
-        SELECT *
-        FROM chuko_table
-        WHERE selected_districts IN ({','.join(['?'] * len(selected_districts))})
-        AND walk_distance BETWEEN ? AND ?
-        AND age_range BETWEEN ? AND ?
-        AND layout_types IN ({','.join(['?'] * len(layout_types))})
-        AND price_range BETWEEN ? AND ?
-    """
-
-    # クエリのパラメータを設定
-    params = selected_districts + [walk_distance[0], walk_distance[1]]+ [age_range[0], age_range[1]] + layout_types + [price_range[0], price_range[1]]
-
-    # クエリを実行して物件情報を取得
-    cursor.execute(query, params)
-    filtered_data = cursor.fetchall()
-
-    # データベース接続を閉じる
-    conn.close()
-
-    return filtered_data
-
-# Streamlit アプリケーション
 def main():
     st.title("マンション買うなら儲かるくん")
     st.sidebar.title("希望条件を入れてください")
+
     # サイドバーの要素
     selected_districts = st.sidebar.multiselect("東京23区から選択", ["千代田区", "中央区", "港区", "新宿区", "文京区", "台東区", "墨田区", "江東区","品川区", "渋谷区", "目黒区", "大田区", "世田谷区", "練馬区", "杉並区", "豊島区", "北区", "板橋区","足立区", "荒川区", "江戸川区", "葛飾区"])
     walk_distance = st.sidebar.slider("駅からの徒歩距離（分）", 0, 30, (0, 30))
@@ -45,11 +16,48 @@ def main():
     search_button = st.sidebar.button("検索")
 
     if search_button:
-    # 物件情報を取得
-        filtered_data = get_filtered_data(selected_districts, walk_distance, age_range, layout_types, price_range)
+        # データベースに接続
+        conn = sqlite3.connect("scraping/chuko_database.db")
+        cursor = conn.cursor()
 
-    # 物件情報を表示
-        st.write(filtered_data)
+        # SQLクエリを作成して物件情報を抽出
+        query = """
+            SELECT name, location_parts, price_range, layout_types, age_range, walk_distance
+            FROM chuko_table
+            WHERE selected_districts IN ({})
+                AND walk_distance BETWEEN ? AND ?
+                AND age_range BETWEEN ? AND ?
+                AND layout_types IN ({})
+                AND price_range BETWEEN ? AND ?
+        """.format(", ".join(["?"] * len(selected_districts)), ", ".join(["?"] * len(layout_types)))
 
-if __name__ == "__main__":
-    main()
+        # パラメータを設定
+        params = (
+            *selected_districts,
+            walk_distance[0], walk_distance[1],
+            age_range[0], age_range[1],
+            *layout_types,
+            price_range[0], price_range[1]
+        )
+
+        # クエリを実行
+        cursor.execute(query, params)
+        results = cursor.fetchall()
+
+        # データベース接続を閉じる
+        conn.close()
+
+        # 物件情報を表示
+        st.write("物件情報:")
+        for row in results:
+            name, location_parts, price_range, layout_types, age_range, walk_distance = row
+            st.write(f"物件名: {name}, 所在地: {location_parts}, 価格: {price_range}, 間取り: {layout_types}, 築年数: {age_range}, 徒歩距離: {walk_distance}分")
+
+        # 検索結果を選択できるボタンを追加
+        selected_property = st.selectbox("物件を選択してください", [result[0] for result in results])
+
+         # 選択した物件の情報を表示
+        for row in results:
+            name, location_parts, price_range, layout_types, age_range, walk_distance = row
+            if name == selected_property:
+                st.write(f"物件名: {name}, 所在地: {location_parts}, 価格: {price_range}万円, 間取り: {layout_types}, 築年数: {age_range}年, 徒歩距離: {walk_distance}分")
