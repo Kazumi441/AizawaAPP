@@ -1,5 +1,17 @@
 import streamlit as st
 import sqlite3
+import pandas as pd
+import numpy as np
+
+# セッション状態を初期化
+if 'user_input' not in st.session_state:
+    st.session_state.user_input = {
+        'selected_districts': [],
+        'walk_distance': (0, 30),
+        'age_range': (0, 50),
+        'layout_types': [],
+        'price_range': (0, 20000)
+    }
 
 def main():
     st.title("マンション買うなら儲かるくん")
@@ -11,6 +23,22 @@ def main():
     age_range = st.sidebar.slider("築年数（年）", 0, 50, (0, 50))
     layout_types = st.sidebar.multiselect("間取り", ["ワンルーム", "1K", "1DK", "1LDK" , "2K" ,"2DK" ,"2LDK", "3K", "3DK","3LDK","4K","4DK","4LDK以上"])
     price_range = st.sidebar.slider("金額（万円）", 0, 2000, (0, 20000), step=500)
+
+    # ユーザーの入力をセッション状態に保存
+    st.session_state.user_input = {
+        'selected_districts': selected_districts,
+        'walk_distance': walk_distance,
+        'age_range': age_range,
+        'layout_types': layout_types,
+        'price_range': price_range
+    }
+    # セッション状態からデータを取得
+    user_input = st.session_state.user_input
+    selected_districts = user_input['selected_districts']
+    walk_distance = user_input['walk_distance']
+    age_range = user_input['age_range']
+    layout_types = user_input['layout_types']
+    price_range = user_input['price_range']
 
     # 検索ボタンを追加
     search_button = st.sidebar.button("検索")
@@ -40,29 +68,25 @@ def main():
             price_range[0], price_range[1]
         )
 
-        # クエリを実行
-        cursor.execute(query, params)
-        results = cursor.fetchall()
+        # クエリを実行して結果をDataFrameに格納
+        df_chuko = pd.read_sql_query(query, conn, params=params)
+
 
         # データベース接続を閉じる
         conn.close()
 
         # 物件情報を表示
         st.write("物件情報:")
-        property_names = [row[0] for row in results]
+        property_names = df_chuko['name'].tolist()
         selected_property = st.selectbox("物件を選択", property_names, key="property_selection")
-        selected_property_info = None
-        for row in results:
-            name, location_parts, price_range, layout_types, age_range, walk_distance = row
-            if name == selected_property:
-                selected_property_info = row
-                st.write(f"物件名: {name}, 所在地: {location_parts}, 価格: {price_range}万円, 間取り: {layout_types}, 築年数: {age_range}年, 徒歩距離: {walk_distance}分")
+        selected_property_info = df_chuko[df_chuko['name'] == selected_property].iloc[0]
+
 
         # 選択した物件情報を再度表示
-        if selected_property_info:
+        if not selected_property_info.empty:
             st.write("選択した物件情報:")
-            name, location_parts, price_range, layout_types, age_range, walk_distance = selected_property_info
-            st.write(f"物件名: {name}, 所在地: {location_parts}, 価格: {price_range}万円, 間取り: {layout_types}, 築年数: {age_range}年, 徒歩距離: {walk_distance}分")
+            st.write(f"物件名: {selected_property_info['name']}, 所在地: {selected_property_info['location_parts']}, 価格: {selected_property_info['price_range']}万円, 間取り: {selected_property_info['layout_types']}, 築年数: {selected_property_info['age_range']}年, 徒歩距離: {selected_property_info['walk_distance']}分")
+
 
 if __name__ == "__main__":
     main()
