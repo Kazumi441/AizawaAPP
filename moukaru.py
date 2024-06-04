@@ -2,6 +2,8 @@ import streamlit as st
 import sqlite3
 import pandas as pd
 import numpy as np
+from scraping.Haversine_Distance import haversine 
+from scraping.calculate_amortized import calculate_amortized_payment
 
 # セッション状態を初期化
 if 'user_input' not in st.session_state:
@@ -48,9 +50,9 @@ def main():
         conn = sqlite3.connect("scraping/chuko_database.db")
         cursor = conn.cursor()
 
-        # SQLクエリを作成して物件情報を抽出
+        # SQLクエリを作成してすべてのカラムを含む物件情報を抽出
         query = """
-            SELECT name, location_parts, price_range, layout_types, age_range, walk_distance
+            SELECT *
             FROM chuko_table
             WHERE selected_districts IN ({})
                 AND walk_distance BETWEEN ? AND ?
@@ -71,22 +73,110 @@ def main():
         # クエリを実行して結果をDataFrameに格納
         df_chuko = pd.read_sql_query(query, conn, params=params)
 
-
         # データベース接続を閉じる
         conn.close()
+        
+        # サブタイトル
+        st.subheader("購入物件の検索")
 
         # 物件情報を表示
         st.write("物件情報:")
-        property_names = df_chuko['name'].tolist()
-        selected_property = st.selectbox("物件を選択", property_names, key="property_selection")
-        selected_property_info = df_chuko[df_chuko['name'] == selected_property].iloc[0]
+        st.dataframe(df_chuko)
+        st.session_state.property_names = df_chuko['name'].tolist()
+        st.session_state.selected_property = st.selectbox("物件を選択", st.session_state.property_names, key="property_selection")
+        # 選択した物件情報をセッション状態に保存
+        if st.session_state.selected_property:
+            st.session_state.selected_property_info = df_chuko[df_chuko['name'] == st.session_state.selected_property].iloc[0]
 
+        # セッション状態から物件情報を取得
+        st.session_state.selected_property_info = st.session_state.get("selected_property_info", pd.Series())
 
         # 選択した物件情報を再度表示
-        if not selected_property_info.empty:
+        if not st.session_state.selected_property_info.empty:
             st.write("選択した物件情報:")
-            st.write(f"物件名: {selected_property_info['name']}, 所在地: {selected_property_info['location_parts']}, 価格: {selected_property_info['price_range']}万円, 間取り: {selected_property_info['layout_types']}, 築年数: {selected_property_info['age_range']}年, 徒歩距離: {selected_property_info['walk_distance']}分")
+            st.write(f"物件名: {st.session_state.selected_property_info['name']}, 所在地: {st.session_state.selected_property_info['location_parts']}, 価格: {st.session_state.selected_property_info['price_range']}万円, 間取り: {st.session_state.selected_property_info['layout_types']}, 築年数: {st.session_state.selected_property_info['age_range']}年, 徒歩距離: {st.session_state.selected_property_info['walk_distance']}分")
+            st.write(f"緯度: {st.session_state.selected_property_info['latitude']}, 経度: {st.session_state.selected_property_info['longitude']}")
 
+        # ユーザーが選んだ物件情報の緯度と経度を取得
+        if st.session_state.selected_property:
+            st.session_state.selected_property_info = df_chuko[df_chuko['name'] == st.session_state.selected_property].iloc[0]
+            selected_latitude = st.session_state.selected_property_info['latitude']
+            selected_longitude = st.session_state.selected_property_info['longitude']
+        else:
+            # 物件が選択されていない場合の処理を追加（例: デフォルトの緯度・経度を設定するなど）
+            # この部分を適切に設定してください
+            pass
+        # サブタイトル
+        st.subheader("ローンシミュレーション")
+        # ユーザーが選んだ物件情報の価格を取得し、万円単位に変換
+        if st.session_state.selected_property:
+            principal = st.session_state.selected_property_info['price_range'] * 10000
+        else:
+            # 物件が選択されていない場合の処理を追加（例: デフォルトの価格を設定するなど）
+            principal = 0.0
+        interest_rate = st.slider("金利 (%)", min_value=0.1, max_value=5.0, value=0.6, step=0.1)
+        loan_term = st.slider("融資期間 (年)", min_value=10, max_value=40, value=35, step=1)
+
+        monthly_payment = calculate_amortized_payment(principal, interest_rate, loan_term)
+        st.write(f"月々の支払額: {monthly_payment:.2f} 円")
+
+        # 水平の線を入れる
+        st.divider()
+
+        # サブタイトル
+        st.subheader("賃貸物件にする場合")
+
+        # データベースに接続
+        conn_chintai = sqlite3.connect("scraping/chintai_database.db")
+        cursor = conn_chintai.cursor()
+
+        # chintai_databaseからすべての物件情報を取得
+        df_chintai = pd.read_sql_query("SELECT * FROM my_table", conn_chintai)
+
+        # Haversine Distance を計算して物件の距離を追加
+        df_chintai["distance"] = df_chintai.apply(lambda row: haversine(selected_latitude, selected_longitude, row['latitude'], row['longitude']), axis=1)
+
+        # 距離でソートして上位5件を選択
+        df_chintai_sorted = df_chintai.sort_values(by="distance").head(5)
+
+        # 物件情報を表示
+        st.write("近くの物件情報:")
+        st.dataframe(df_chintai_sorted[["物件名", "所在地", "交通", "賃料", "専有面積", "間取り"]])
+
+        # データベース接続を閉じる
+        conn_chintai.close()
+
+        # 選んだ物件の賃料と専有面積を取得
+        selected_rent = df_chintai_sorted.iloc[0]["賃料"]
+        selected_area = df_chintai_sorted.iloc[0]["専有面積"]
+
+        # st.session_state.selected_property の area を数値に変換
+        selected_property_area = float(st.session_state.selected_property_info["area"])
+
+        # 想定賃料を計算
+        expected_rent = (selected_rent / selected_area) * selected_property_area
+
+        # 結果を表示
+        st.write(f"想定賃料：{expected_rent:.2f}円")
+
+        # 水平の線を入れる
+        st.divider()
+
+        # サブタイトル
+        st.subheader("資産運用物件としての評価")
+        # 月々の収支を計算
+        monthly_profit = expected_rent - selected_rent
+
+        # 結果を表示
+        st.write(f"月々の収支：{monthly_profit:.2f}円")
+        # 選択した物件の価格帯を取得
+        selected_price_range = st.session_state.selected_property_info['price_range']
+
+        # 物件利回り（表面）を計算
+        property_yield = (expected_rent * 12) / (selected_price_range * 10000)
+
+        # 結果を表示（フォントサイズを大きくするためにst.markdownを使用）
+        st.markdown(f"<span style='font-size: 1.2em;'>物件利回り（表面）：{property_yield:.1%}</span>", unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
