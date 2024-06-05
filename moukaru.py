@@ -107,7 +107,7 @@ def main():
         gdf_chuko = gpd.GeoDataFrame(df_chuko, geometry=geometry, crs='EPSG:4326')
 
         # 地図上へのマッピング
-        st.subheader("データフレームを地図上にマッピング")
+        st.subheader("地図上にマッピング")
         st.map(gdf_chuko)
 
         st.session_state.property_names = df_chuko['name'].tolist()
