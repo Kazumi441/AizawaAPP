@@ -2,6 +2,8 @@ import streamlit as st
 import sqlite3
 import pandas as pd
 import numpy as np
+import geopandas as gpd
+import folium
 from scraping.Haversine_Distance import haversine 
 from scraping.calculate_amortized import calculate_amortized_payment
 
@@ -97,6 +99,17 @@ def main():
         # 物件情報を表示
         st.write("物件情報:")
         st.dataframe(df_chuko)
+
+        # 緯度と経度からPointオブジェクトを作成
+        geometry = gpd.points_from_xy(df_chuko['longitude'], df_chuko['latitude'])
+
+        # GeoDataFrameを作成
+        gdf_chuko = gpd.GeoDataFrame(df_chuko, geometry=geometry, crs='EPSG:4326')
+
+        # 地図上へのマッピング
+        st.subheader("データフレームを地図上にマッピング")
+        st.map(gdf_chuko)
+
         st.session_state.property_names = df_chuko['name'].tolist()
         st.session_state.selected_property = st.selectbox("物件を選択", st.session_state.property_names, key="property_selection")
         # 選択した物件情報をセッション状態に保存
