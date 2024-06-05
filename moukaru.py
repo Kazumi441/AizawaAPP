@@ -193,7 +193,7 @@ def main():
         # サブタイトル
         st.subheader("資産運用物件としての評価")
         # 月々の収支を計算
-        monthly_profit = expected_rent - selected_rent
+        monthly_profit = expected_rent - monthly_payment
 
         # 結果を表示
         st.write(f"月々の収支：{monthly_profit:.2f}円")
