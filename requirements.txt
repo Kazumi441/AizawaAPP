@@ -5,3 +5,5 @@ beautifulsoup4
 python-dotenv
 openai
 google-api-python-client
+geopandas
+folium
