@@ -5,6 +5,21 @@ import numpy as np
 from scraping.Haversine_Distance import haversine 
 from scraping.calculate_amortized import calculate_amortized_payment
 
+# 画像ファイルのパスを指定
+image_path = "header.png"
+
+# ヘッダー画像を表示
+st.image(image_path)
+
+# カスタムCSSを適用
+st.markdown("""
+<style>
+.stImage > img {
+    width: 100%;
+}
+</style>
+""", unsafe_allow_html=True)
+
 # セッション状態を初期化
 if 'user_input' not in st.session_state:
     st.session_state.user_input = {
